@@ -136,7 +136,7 @@ class Amazon:
 
         amazon_config = global_config.get_amazon_config(encryption_pass)
         self.profile_path = global_config.get_browser_profile_path()
-
+        self.stock_check_count = 1
         try:
             presence.start_presence()
         except Exception in pyexceptions:
@@ -886,6 +886,13 @@ class Amazon:
                     log.error("Failed to get page")
                     atc_attempts += 1
                     continue
+            if wait_for_element_by_xpath(self.driver, "//input[@type='hidden' and @name='Quantity.1']"):
+                available_text = self.driver.find_element_by_xpath("//span[@class='style1']")
+            if available_text:
+                if "There are no items to add to your cart." in available_text.text:
+                    print(f"No stock. Check Number: {self.stock_check_count}", end="\r")
+                    self.stock_check_count+=1
+                    return False
             xpath = "//input[@value='add' and @name='add']"
             continue_btn = None
             if wait_for_element_by_xpath(self.driver, xpath):
