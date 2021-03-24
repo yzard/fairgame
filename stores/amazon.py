@@ -887,12 +887,18 @@ class Amazon:
                     atc_attempts += 1
                     continue
             if wait_for_element_by_xpath(self.driver, "//input[@type='hidden' and @name='Quantity.1']"):
-                available_text = self.driver.find_element_by_xpath("//span[@class='style1']")
+                try:
+                    available_text = self.driver.find_element_by_xpath("//span[@class='style1']")
+                except sel_exceptions.NoSuchElementException:
+                    pass
             if available_text:
-                if "There are no items to add to your cart." in available_text.text:
-                    print(f"No stock. Check Number: {self.stock_check_count}", end="\r")
-                    self.stock_check_count+=1
-                    return False
+                try:
+                    if "There are no items to add to your cart." in available_text.text:
+                        print(f"No stock. Check Number: {self.stock_check_count}", end="\r")
+                        self.stock_check_count+=1
+                        return False
+                except:
+                    pass
             xpath = "//input[@value='add' and @name='add']"
             continue_btn = None
             if wait_for_element_by_xpath(self.driver, xpath):
