@@ -257,6 +257,9 @@ class Amazon:
                                 and not self.single_shot
                                 and self.great_success
                         ):
+                            runtime = time.time() - self.start_time
+                            log.info(f"FairGame bot ran for {runtime} seconds.")
+                            time.sleep(10)  # add a delay to shut stuff done
                             return
                         # checkout loop limiters
                         elif self.checkout_retry > DEFAULT_MAX_PTC_TRIES:
@@ -269,15 +272,11 @@ class Amazon:
                         if loop_iterations > DEFAULT_MAX_CHECKOUT_LOOPS:
                             self.fail_to_checkout_note()
                             self.try_to_checkout = False
-                        continue_stock_check = False
-                    runtime = time.time() - self.start_time
-                    log.info(f"FairGame bot ran for {runtime} seconds.")
-                    time.sleep(10)  # add a delay to shut stuff done
+                        #continue_stock_check = False
                 else:
                     time.sleep(delay)
             return
         else:
-
             while continue_stock_check:
 
                 self.unknown_title_notification_sent = False
