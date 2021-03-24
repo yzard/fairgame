@@ -191,6 +191,12 @@ def main():
     default=False,
     help="Wait if captcha could not be solved. Only occurs if enters captcha handler during checkout.",
 )
+@click.option(
+    "--offerid",
+    type=str,
+    default=None,
+    help="Pass in offering ID",
+)
 @notify_on_crash
 def amazon(
     no_image,
@@ -211,6 +217,7 @@ def amazon(
     clean_profile,
     clean_credentials,
     captcha_wait,
+    offerid,
 ):
     notification_handler.sound_enabled = not disable_sound
     if not notification_handler.sound_enabled:
@@ -246,9 +253,9 @@ def amazon(
     )
 
     try:
-        amzn_obj.run(delay=delay, test=test)
+        amzn_obj.run(delay=delay, test=test, offerid=offerid)
     except RuntimeError:
-        del amzn_obj
+        #del amzn_obj
         log.error("Exiting Program...")
         time.sleep(5)
 

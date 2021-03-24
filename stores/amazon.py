@@ -189,7 +189,7 @@ class Amazon:
         else:
             self.ACTIVE_OFFER_URL = AMAZON_URLS["OFFER_URL"]
 
-    def run(self, delay=DEFAULT_REFRESH_DELAY, test=False):
+    def run(self, delay=DEFAULT_REFRESH_DELAY, test=False, offerid=None):
         self.testing = test
         self.refresh_delay = delay
         self.show_config()
@@ -234,47 +234,91 @@ class Amazon:
 
         log.info("Checking stock for items.")
 
-        while continue_stock_check:
+        if offerid:
+            while continue_stock_check:
+                if self.attempt_atc(offering_id=offerid):
+                    self.unknown_title_notification_sent = False
+                    # found something in stock and under reserve
+                    # initialize loop limiter variables
+                    self.try_to_checkout = True
+                    self.checkout_retry = 0
+                    self.order_retry = 0
+                    loop_iterations = 0
+                    self.great_success = False
+                    while self.try_to_checkout:
+                        try:
+                            self.navigate_pages(test)
+                        # if for some reason page transitions in the middle of checking elements, don't break the program
+                        except sel_exceptions.StaleElementReferenceException:
+                            pass
+                        # if successful after running navigate pages, remove the asin_list from the list
+                        if (
+                                not self.try_to_checkout
+                                and not self.single_shot
+                                and self.great_success
+                        ):
+                            return
+                        # checkout loop limiters
+                        elif self.checkout_retry > DEFAULT_MAX_PTC_TRIES:
+                            self.try_to_checkout = False
+                            self.fail_to_checkout_note()
+                        elif self.order_retry > DEFAULT_MAX_PYO_TRIES:
+                            self.try_to_checkout = False
+                            self.fail_to_checkout_note()
+                        loop_iterations += 1
+                        if loop_iterations > DEFAULT_MAX_CHECKOUT_LOOPS:
+                            self.fail_to_checkout_note()
+                            self.try_to_checkout = False
+                        continue_stock_check = False
+                    runtime = time.time() - self.start_time
+                    log.info(f"FairGame bot ran for {runtime} seconds.")
+                    time.sleep(10)  # add a delay to shut stuff done
+                else:
+                    time.sleep(delay)
+            return
+        else:
 
-            self.unknown_title_notification_sent = False
-            asin = self.run_asins(delay)
-            # found something in stock and under reserve
-            # initialize loop limiter variables
-            self.try_to_checkout = True
-            self.checkout_retry = 0
-            self.order_retry = 0
-            loop_iterations = 0
-            self.great_success = False
-            while self.try_to_checkout:
-                try:
-                    self.navigate_pages(test)
-                # if for some reason page transitions in the middle of checking elements, don't break the program
-                except sel_exceptions.StaleElementReferenceException:
-                    pass
-                # if successful after running navigate pages, remove the asin_list from the list
-                if (
-                    not self.try_to_checkout
-                    and not self.single_shot
-                    and self.great_success
-                ):
-                    self.remove_asin_list(asin)
-                # checkout loop limiters
-                elif self.checkout_retry > DEFAULT_MAX_PTC_TRIES:
-                    self.try_to_checkout = False
-                    self.fail_to_checkout_note()
-                elif self.order_retry > DEFAULT_MAX_PYO_TRIES:
-                    self.try_to_checkout = False
-                    self.fail_to_checkout_note()
-                loop_iterations += 1
-                if loop_iterations > DEFAULT_MAX_CHECKOUT_LOOPS:
-                    self.fail_to_checkout_note()
-                    self.try_to_checkout = False
-            # if no items left it list, let loop end
-            if not self.asin_list:
-                continue_stock_check = False
-        runtime = time.time() - self.start_time
-        log.info(f"FairGame bot ran for {runtime} seconds.")
-        time.sleep(10)  # add a delay to shut stuff done
+            while continue_stock_check:
+
+                self.unknown_title_notification_sent = False
+                asin = self.run_asins(delay)
+                # found something in stock and under reserve
+                # initialize loop limiter variables
+                self.try_to_checkout = True
+                self.checkout_retry = 0
+                self.order_retry = 0
+                loop_iterations = 0
+                self.great_success = False
+                while self.try_to_checkout:
+                    try:
+                        self.navigate_pages(test)
+                    # if for some reason page transitions in the middle of checking elements, don't break the program
+                    except sel_exceptions.StaleElementReferenceException:
+                        pass
+                    # if successful after running navigate pages, remove the asin_list from the list
+                    if (
+                        not self.try_to_checkout
+                        and not self.single_shot
+                        and self.great_success
+                    ):
+                        self.remove_asin_list(asin)
+                    # checkout loop limiters
+                    elif self.checkout_retry > DEFAULT_MAX_PTC_TRIES:
+                        self.try_to_checkout = False
+                        self.fail_to_checkout_note()
+                    elif self.order_retry > DEFAULT_MAX_PYO_TRIES:
+                        self.try_to_checkout = False
+                        self.fail_to_checkout_note()
+                    loop_iterations += 1
+                    if loop_iterations > DEFAULT_MAX_CHECKOUT_LOOPS:
+                        self.fail_to_checkout_note()
+                        self.try_to_checkout = False
+                # if no items left it list, let loop end
+                if not self.asin_list:
+                    continue_stock_check = False
+            runtime = time.time() - self.start_time
+            log.info(f"FairGame bot ran for {runtime} seconds.")
+            time.sleep(10)  # add a delay to shut stuff done
 
     def fail_to_checkout_note(self):
         log.info(
