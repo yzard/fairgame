@@ -2,7 +2,8 @@
 
 # Table of Contents:
 * [About FairGame](#About-FairGame)
-    * [Current Functionality](#Current-Functionality)  
+    * [Current Functionality](#Current-Functionality)
+    * [Disclaimer](#Disclaimer) 
 * [Installation](#Installation)
     * [Requirements](#Requirements)
     * [Quick Start](#Quick-Start)
@@ -32,7 +33,7 @@
 
 # Quick Links
  * [Discord](https://discord.gg/4rfbNKrmnC) **DO NOT ASK QUESTIONS IN DISCORD BEFORE READING THIS DOCUMENT**
- * [Python Download (3.8.8)](https://www.python.org/downloads/release/python-388/)
+ * [Python Download (3.8.9)](https://www.python.org/downloads/release/python-389/)
 
 # About FairGame
 
@@ -62,6 +63,20 @@ FairGame only works on Amazon and can automatically place an order.
   * If you want to set purchase price ranges for several different products, but only want FairGame to purchase
     one of any of the products you've included in the configuration file, use the `--single-shot` option, see
     [Running the program](#Running-the-program)    
+
+### Disclaimer 
+
+WARNING: The use of this software can result in a Amazon restricting access to your account and make it difficult 
+for you to purchase products, with or without the bot. By using this software, you acknowledge these risks. These restrictions
+cannot and will not be resolved by the developer(s), nor can they be detected/resolved by the standard Amazon Customer Support,
+as far as we are aware. If this happens, the only resolution is to stop all Amazon monitors (e.g., FairGame, Distill.io,
+or other bots, etc.), wait, and hope the limits are lifted within a few days. If this is a major issue you should
+consider avoiding use of this software. 
+
+Account restrictions may be triggered by any of the following: 1) running multiple instances on one device, 2) running multiple instances on different devices, using the same account, regardless of their IP, proxy, or location, 3) configuring an instance to check stock too frequently/aggressively (default settings not guaranteed to be safe). 
+
+Symptoms of account restrictions include: 1) Fly-out (offers) window is missing/completely blank, even if there are listings for the ASIN, 2) frequent CAPTCHA checks, 3) inability to access the My Account page, add items to your cart, or complete purchases; usually displayed as a 503 error (Amazon Dogs & “SORRY we couldn’t find that page” message). You’ll likely have to sit-out a few days of drops to resolve the throttle.
+
 # Installation
 
 ## Requirements
@@ -69,7 +84,7 @@ FairGame only works on Amazon and can automatically place an order.
 ***!!! YOU WILL NEED TO USE THE 3.8 BRANCH OF PYTHON, ANY OTHER BRANCH/VERSION (Anaconda, 2.7, 3.9.x, 3.10, 4.0,
 toaster, etc.) BREAKS DEPENDENCIES !!!***
 
-It is best if you use the newest version of **3.8** (at this time, 3.8.8) but 3.8.5, 3.8.6, and 3.8.7 should also work. 
+It is best if you use the newest version of **3.8** (at this time, 3.8.9) but 3.8.5, 3.8.6, 3.8.7, and 3.8.8 should also work. 
 
 It also requires a working Chrome installation. 
 Running it on a potato (<2GB of RAM) is not suggested. 
@@ -81,7 +96,7 @@ regardless of your OS (obviously you aren't running .bat files if you aren't on 
 available on your OS). See [Platform Specific](#Platform-Specific) instructions for help installing Python and
 dependencies in other operating systems:
 1. [Turn on your computer](https://www.google.com/search?q=how+do+I+turn+on+my+computer)
-2. Install Python 3.8.5, 3.8.6, 3.8.7 or 3.8.8. Install to some location that does not include spaces in the path 
+2. [Install Python 3.8.9](https://www.python.org/downloads/release/python-389/). Install to some location that does not include spaces in the path 
    (we suggest C:\Python38). Click the checkbox that says Add Python 3.8 to PATH (or something similar) 
    during the installation.
    
@@ -130,7 +145,7 @@ dependencies in other operating systems:
    
    ![Run Amazon.bat](https://github.com/Hari-Nagarajan/fairgame/blob/master/docs/images/Step7.png)
    
-8. Verify that the bot successfully makes it to the place your order page with the item you put in the config file. 
+8. Verify that the bot successfully places an order with the item you put in the config file. **NOTE: WITH 0.6.6, TEST MODE NO LONGER FUNCTIONS THE SAME WAY. YOU SHOULD TRY AND BUY SOMETHING TO VERIFY THE BOT WORKS FOR YOU!**
    If it does not, then:
    * You messed something up above, and need to fix it; or,
    * If it is asking you for your address and payment info, you need to do all of the following in a separate
@@ -143,7 +158,7 @@ dependencies in other operating systems:
      * ALSO see notes regarding EU and [current functionality](#Other-Notes-on-Functionality)
 9. Edit the `amazon_config.json` file with the item(s) you want to look for. See [Configuration](#Configuration) 
    and [Configuration Examples](#Configuration-Examples) for additional information
-10. Remove `--test` from `_Amazon.bat`. 
+10. Remove `--test` from `_Amazon.bat`. (See note in Step 8 above) 
 [How do I edit .bat files?](https://www.google.com/search?q=how+to+edit+bat+file+in+windows+10)
    
    ![Remove Test](https://github.com/Hari-Nagarajan/fairgame/blob/master/docs/images/Step10.png)
@@ -303,7 +318,9 @@ pipenv run python app.py amazon [Options]
 Options:
   --headless          Runs Chrome in headless mode.
   
-  --test              Run the checkout flow but do not actually purchase the item[s]
+  --test              Run the checkout flow but do not actually purchase the item[s]. Only functional with `--alt-checkout` mode.
+  
+  --alt-checkout      Utilize the old add to cart method of checkout.
 
   --delay FLOAT       Time to wait between the end of one stock check and the beginning of the next stock check.
   
@@ -403,7 +420,7 @@ See [#asins](https://discord.gg/DuVXAN5FnN) channel on our Discord server, or lo
 These instructions are supplied by community members and any adjustments, corrections, improvements or clarifications
 are welcome. These are typically created during installation in a single environment, so there may be caveats or changes
 necessary for your environment. This isn't intended to be a definitive guide, but a starting point as validation that a
-platform can/does work. Please report back any suggestions to our [Discord](https://discord.gg/qDY2QBtAW6) feedback
+platform can/does work. Please report back any suggestions to our [Discord](https://discord.gg/wgCYBx9URn) feedback
 channel.
 
 #### Installation MacOS 
@@ -436,6 +453,9 @@ Open terminal. Either right click desktop and go to Open In Terminal, or search 
 
 Install Google Chrome:
 `wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && sudo dpkg -i google-chrome-stable_current_amd64.deb`
+
+Add Universe repo (this might be optional depending on your distro):
+`sudo add-apt-repository universe && sudo apt update`
 
 Install Pip:
 `sudo apt install python3-pip`
@@ -661,22 +681,37 @@ export PIPENV_VENV_IN_PROJECT=1 (Linux/Other)
 ## Frequently Asked Questions
 
 To keep up with questions, the Discord channel [#FAQ](https://discord.gg/GEsarYKMAw) is where you'll find the latest
-answers. If you don't find it there, ask in #tech-support. 
+answers. If you don't find it there, ask in #tech-support.
 
+1. **Why didn't Fairgame buy this GPU that I can see in my browser?**
+   
+   If Fairgame didn't attempt to buy it, then Fairgame didn't ever see it as in stock. Many stock alert services are
+   sending out affiliate URLs that appear to cache offers for some period of time, regardless of whether or not the item
+   is still in-stock and purchaseable. Many people have reported that they can see an item as in stock in their browser
+   but Fairgame either didn't see it, failed to check out, or logged some weird error condition.
+   
+   If you are trying to purchase an Nvidia 30-series or an AMD 6000-series GPU in 2021 then this may happen frequently for you.
+   These items appear to sell out within fractions of a second and a large a mount of luck will be involved. Please do not
+   create issues or ask for help when Fairgame "misses" a drop or tries to checkout but can't find the item in your cart.
+   We know that it's hard to buy these things right now - that's why we're all here. Good luck!
+   
 1. **Can I run multiple instances of the bot?**
+   
    It is possible, however we do not support running multiple instances nor any issues that may be encountered while doing so.
-
-2. **Does Fairgame automatically bypass CAPTCHA's on the store sites?**
+   
+1. **Does Fairgame automatically bypass CAPTCHA's on the store sites?**
+   
    The bot will try and auto-solve CAPTCHA's during the checkout process.
-
-3. **Does `--headless` work?**
+   
+1. **Does `--headless` work?**
+   
    Yes!  A community user identified the issue with the headless option while running on a Raspberry Pi. This allowed
    the developers to update the codebase to consistently work correctly on headless server environments. Give it a try
    and let us know if you have any issues.
-
-4. **Does Fairgame run on a Raspberry Pi?**
+   
+1. **Does Fairgame run on a Raspberry Pi?**
+   
    Yes, with caveats. Most people seem to have success with Raspberry Pi 4. The 2 GB model may need to run the headless
    option due to the smaller memory footprint. Still awaiting community feedback on running on a Pi 3. CPU and memory
    capacity seem to be the limiting factor for older Pi models. The Pi is also much slower then even a semi-recent
    (5 years or less) laptop. 
-

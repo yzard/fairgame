@@ -23,6 +23,7 @@ import math
 import os
 import platform
 import time
+import re
 from contextlib import contextmanager
 from datetime import datetime
 from enum import Enum
@@ -43,6 +44,7 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
+import utils.selenium_utils
 from utils import discord_presence as presence
 from utils.debugger import debug
 from utils.logger import log
@@ -110,6 +112,7 @@ class Amazon:
         shipping_bypass=False,
         alt_offers=False,
         wait_on_captcha_fail=False,
+        alt_checkout=False,
     ):
         self.notification_handler = notification_handler
         self.asin_list = []
@@ -142,6 +145,7 @@ class Amazon:
         self.unknown_title_notification_sent = False
         self.alt_offers = alt_offers
         self.wait_on_captcha_fail = wait_on_captcha_fail
+        self.alt_checkout = alt_checkout
 
         presence.enabled = not disable_presence
 
@@ -263,40 +267,46 @@ class Amazon:
         while continue_stock_check:
             self.unknown_title_notification_sent = False
             asin = self.run_asins(delay)
-            # found something in stock and under reserve
-            # initialize loop limiter variables
-            self.try_to_checkout = True
-            self.checkout_retry = 0
-            self.order_retry = 0
-            loop_iterations = 0
-            self.great_success = False
-            while self.try_to_checkout:
-                try:
-                    self.navigate_pages(test)
-                # if for some reason page transitions in the middle of checking elements, don't break the program
-                except sel_exceptions.StaleElementReferenceException:
-                    pass
-                # if successful after running navigate pages, remove the asin_list from the list
-                if (
-                    not self.try_to_checkout
-                    and not self.single_shot
-                    and self.great_success
-                ):
-                    self.remove_asin_list(asin)
-                # checkout loop limiters
-                elif self.checkout_retry > DEFAULT_MAX_PTC_TRIES:
-                    self.try_to_checkout = False
-                    self.fail_to_checkout_note()
-                elif self.order_retry > DEFAULT_MAX_PYO_TRIES:
-                    self.try_to_checkout = False
-                    self.fail_to_checkout_note()
-                loop_iterations += 1
-                if loop_iterations > DEFAULT_MAX_CHECKOUT_LOOPS:
-                    self.fail_to_checkout_note()
-                    self.try_to_checkout = False
-            # if no items left it list, let loop end
-            if not self.asin_list:
-                continue_stock_check = False
+            # New normal (buy it now)
+            if not self.alt_checkout:
+                self.remove_asin_list(asin)
+                if not self.asin_list or self.single_shot:
+                    continue_stock_check = False
+            else:
+                # found something in stock and under reserve
+                # initialize loop limiter variables
+                self.try_to_checkout = True
+                self.checkout_retry = 0
+                self.order_retry = 0
+                loop_iterations = 0
+                self.great_success = False
+                while self.try_to_checkout:
+                    try:
+                        self.navigate_pages(test)
+                    # if for some reason page transitions in the middle of checking elements, don't break the program
+                    except sel_exceptions.StaleElementReferenceException:
+                        pass
+                    # if successful after running navigate pages, remove the asin_list from the list
+                    if (
+                        not self.try_to_checkout
+                        and not self.single_shot
+                        and self.great_success
+                    ):
+                        self.remove_asin_list(asin)
+                    # checkout loop limiters
+                    elif self.checkout_retry > DEFAULT_MAX_PTC_TRIES:
+                        self.try_to_checkout = False
+                        self.fail_to_checkout_note()
+                    elif self.order_retry > DEFAULT_MAX_PYO_TRIES:
+                        self.try_to_checkout = False
+                        self.fail_to_checkout_note()
+                    loop_iterations += 1
+                    if loop_iterations > DEFAULT_MAX_CHECKOUT_LOOPS:
+                        self.fail_to_checkout_note()
+                        self.try_to_checkout = False
+                # if no items left it list, let loop end
+                if not self.asin_list:
+                    continue_stock_check = False
         runtime = time.time() - self.start_time
         log.info(f"FairGame bot ran for {runtime} seconds.")
         time.sleep(10)  # add a delay to shut stuff done
@@ -606,8 +616,10 @@ class Amazon:
                 ):
                     # Use the Buy Box as an Offer as a last resort since it is not guaranteed to be a good offer
                     buy_box = True
+                    upper_case = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+                    lower_case = 'abcdefghijklmnopqrstuvwxyz'
                     offer_count = self.driver.find_elements_by_xpath(
-                        "//div[@id='qualifiedBuybox']//input[@id='add-to-cart-button']"
+                        "//div[@id='qualifiedBuybox']//input[@id='add-to-cart-button'] | //div[contains(translate(@id, upper_case, lower_case), 'qualifiedbuybox')]//input[@id='add-to-cart-button']"
                     )
                 else:
                     log.warning(
@@ -737,7 +749,13 @@ class Amazon:
                         continue
 
             try:
-                price = parse_price(prices[idx].get_attribute("innerHTML"))
+                price = parse_price(
+                    re.sub(
+                        r"(?:\s+|(?:&nbsp;)+)",
+                        "",
+                        prices[idx].get_attribute("innerHTML").strip(),
+                    )
+                )
             except IndexError:
                 log.debug("Price index error")
                 return False
@@ -768,18 +786,28 @@ class Amazon:
                 if offering_id_elements:
                     log.info("Attempting Add To Cart with offer ID...")
                     offering_id = offering_id_elements[0].get_attribute("value")
-                    if self.attempt_atc(
-                        offering_id, max_atc_retries=DEFAULT_MAX_ATC_TRIES
-                    ):
-                        return True
+                    if not self.alt_checkout:
+                        if self.buy_it_now(offering_id, max_atc_retries=20):
+                            return True
+                        else:
+                            self.send_notification(
+                                "Failed Buy it Now ",
+                                "failed-BIN",
+                                self.take_screenshots,
+                            )
+                            self.save_page_source("failed-atc")
+                            return False
                     else:
-                        self.send_notification(
-                            "Failed Add to Cart after {max-atc-retries}",
-                            "failed-atc",
-                            self.take_screenshots,
-                        )
-                        self.save_page_source("failed-atc")
-                        return False
+                        if self.attempt_atc(offering_id):
+                            return True
+                        else:
+                            self.send_notification(
+                                "Failed ATC ",
+                                "failed-ATC",
+                                self.take_screenshots,
+                            )
+                            self.save_page_source("failed-atc")
+                            return False
                 else:
                     log.error(
                         "Unable to find offering ID to add to cart.  Using legacy mode."
@@ -846,6 +874,54 @@ class Amazon:
 
         log.info(f"Offers exceed price range ({reserve_min:.2f}-{reserve_max:.2f})")
         return in_stock
+
+    def buy_it_now(self, offering_id, max_atc_retries=DEFAULT_MAX_ATC_TRIES):
+        retry = 0
+        successful = False
+        while not successful:
+            buy_it_now_url = f"https://{self.amazon_website}/checkout/turbo-initiate?ref_=dp_start-bbf_1_glance_buyNow_2-1&pipelineType=turbo&weblab=RCX_CHECKOUT_TURBO_DESKTOP_NONPRIME_87784&temporaryAddToCart=1&offerListing.1={offering_id}&quantity.1=1"
+            with self.wait_for_page_content_change():
+                self.driver.get(buy_it_now_url)
+            timeout = self.get_timeout(5)
+            while self.driver.title == "" and time.time() < timeout:
+                time.sleep(0.5)
+            if self.driver.title not in amazon_config["CHECKOUT_TITLES"]:
+                retry += 1
+                if retry > max_atc_retries:
+                    return False
+                continue
+            try:
+                place_order_button = self.driver.find_element_by_xpath(
+                    "//input[@id='turbo-checkout-pyo-button' and @type='submit']"
+                )
+            except sel_exceptions.NoSuchElementException:
+                log.info("No PYO button found, don't ask why")
+                retry += 1
+                if retry > max_atc_retries:
+                    return False
+                continue
+            if place_order_button:
+                try:
+                    with self.wait_for_page_content_change():
+                        place_order_button.click()
+                except sel_exceptions.WebDriverException:
+                    log.info("Could not click button, don't ask why")
+                    retry += 1
+                    if retry > max_atc_retries:
+                        return False
+                    continue
+                timeout = self.get_timeout(5)
+                while self.driver.title == "" and time.time() < timeout:
+                    time.sleep(0.5)
+                if self.driver.title in amazon_config["ORDER_COMPLETE_TITLES"]:
+                    log.info("maybe this worked, check your orders")
+                    self.save_screenshot("Order-Complete-Maybe")
+                    successful = True
+                else:
+                    log.info("maybe this didn't work, check your orders")
+                    self.save_screenshot("Order-Maybe-Not-Complete")
+                    successful = True
+        return True
 
     def attempt_atc(self, offering_id, max_atc_retries=DEFAULT_MAX_ATC_TRIES):
         # Open the add.html URL in Selenium
@@ -1408,7 +1484,12 @@ class Amazon:
             ):
                 try:
                     log.info("Stuck on a captcha... Lets try to solve it.")
-                    captcha = AmazonCaptcha.fromdriver(self.driver)
+                    captcha_link = self.driver.page_source.split('<img src="')[1].split(
+                        '">'
+                    )[
+                        0
+                    ]  # extract captcha link
+                    captcha = AmazonCaptcha.fromlink(captcha_link)
                     solution = captcha.solve()
                     log.info(f"The solution is: {solution}")
                     if solution == "Not solved":
@@ -1770,7 +1851,9 @@ def get_shipping_costs(tree, free_shipping_string):
                 return FREE_SHIPPING_PRICE
             else:
                 # will it parse?
-                shipping_cost: Price = parse_price(shipping_span_text)
+                shipping_cost: Price = parse_price(
+                    re.sub(r"(?:\s+|(?:&nbsp;)+)", "", shipping_span_text)
+                )
                 if shipping_cost.currency is not None:
                     log.debug(
                         f"Found parseable price with currency symbol: {shipping_cost.currency}"
@@ -1820,7 +1903,9 @@ def get_alt_shipping_costs(tree, free_shipping_string) -> Price:
             # Look for a price
             for shipping_span in shipping_spans:
                 if shipping_span.text and shipping_span.text != "+":
-                    shipping_cost: Price = parse_price(shipping_span.text)
+                    shipping_cost: Price = parse_price(
+                        re.sub(r"(?:\s+|(?:&nbsp;)+)", "", shipping_span.text.strip())
+                    )
                     if shipping_cost.currency is not None:
                         log.debug(
                             f"Found parseable price with currency symbol: {shipping_cost.currency}"
@@ -1855,7 +1940,9 @@ def get_alt_shipping_costs(tree, free_shipping_string) -> Price:
                 # & Free Shipping message
                 log.debug("Found '& Free', assuming zero.")
             elif shipping_spans[0].text.startswith("+"):
-                return parse_price(shipping_spans[0].text.strip())
+                return parse_price(
+                    re.sub(r"(?:\s+|(?:&nbsp;)+)", "", shipping_spans[0].text.strip())
+                )
         elif len(shipping_bs) > 0:
             for message_node in shipping_bs:
 
@@ -1919,7 +2006,7 @@ class AmazonItemCondition(Enum):
 
 
 def get_item_condition(form_action) -> AmazonItemCondition:
-    """ Attempts to determine the Item Condition from the Add To Cart form action """
+    """Attempts to determine the Item Condition from the Add To Cart form action"""
     if "_new_" in form_action:
         # log.debug(f"Item condition is new")
         return AmazonItemCondition.New
